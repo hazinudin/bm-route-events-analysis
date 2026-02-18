@@ -1,0 +1,13 @@
+[project]
+name = "bm-route-events-analysis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "dbt-core>=1.7,<2.0",
+  "dbt-oracle>=1.7,<2.0",
+  "dotenv>=0.9.9",
+  "pandas>=2.3.3",
+  "sqlalchemy>=2.0.45",
+]

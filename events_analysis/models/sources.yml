@@ -1,0 +1,17 @@
+sources:
+  - name: lrs
+    schema: alrs      
+    tables:
+      - name: road_network_nat
+
+  - name: binamarga
+    schema: SMD
+    tables:
+      - name: RNI_1_2022
+      - name: RNI_2_2022
+      - name: RNI_1_2023
+      - name: RNI_2_2023
+      - name: RNI_1_2024
+      - name: RNI_2_2024
+      - name: RNI_1_2025
+      - name: RNI_2_2025
