@@ -1,7 +1,7 @@
 {{ config(
     materialized='incremental',
-    unique_key=['LINKID', 'FROM_STA', 'TO_STA', 'LANE_CODE', 'YEAR', 'SEMESTER'],
-    incremental_strategy='merge'
+    unique_key=['LINKID', 'YEAR', 'SEMESTER'],
+    incremental_strategy='delete+insert'
 ) }}
 
 {%- set tables = [] -%}
