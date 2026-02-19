@@ -11,13 +11,12 @@
 SELECT
     sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
     CURRENT_TIMESTAMP as UPDATE_DATE,
-    LINKID,
-    SUBSTR(LINKID, 1, 2) as BM_PROV_ID,
-    YEAR,
-    PCI,
-    TOTAL_LENGTH,
-    cast(NULL as varchar2(255)) as BALAI_ID,
-    cast(NULL as varchar2(255)) as SATKER_PPK_ID,
+    base.LINKID,
+    SUBSTR(base.LINKID, 1, 2) as BM_PROV_ID,
+    base.YEAR,
+    base.PCI,
+    base.TOTAL_LENGTH,
+    {{ satker_balai_columns() }},
 
     {{kemantapan_columns()}}
 
@@ -52,4 +51,5 @@ FROM
     ) merged
 
     GROUP BY merged.LINKID
-)
+) base
+{{ join_satker_balai('base') }}

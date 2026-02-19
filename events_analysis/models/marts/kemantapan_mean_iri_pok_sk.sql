@@ -11,14 +11,13 @@
 SELECT
     sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
     CURRENT_TIMESTAMP as UPDATE_DATE,
-    LINKID,
-    SUBSTR(LINKID, 1, 2) as BM_PROV_ID,
-    YEAR,
-    SEMESTER,
-    IRI_POK,
-    TOTAL_LENGTH,
-    cast(NULL as varchar2(255)) as BALAI_ID,
-    cast(NULL as varchar2(255)) as SATKER_PPK_ID,
+    base.LINKID,
+    SUBSTR(base.LINKID, 1, 2) as BM_PROV_ID,
+    base.YEAR,
+    base.SEMESTER,
+    base.IRI_POK,
+    base.TOTAL_LENGTH,
+    {{ satker_balai_columns() }},
 
     {{kemantapan_columns()}}
 
@@ -29,7 +28,7 @@ FROM
         
         {{var('year')}} as YEAR,
         {{var('semester')}} as SEMESTER,
-        MAX(SK_LENGTH) as TOTAL_LENGTH,  -- Use SK length from the LRS table.
+        MAX(SK_LENGTH) as TOTAL_LENGTH,
         AVG(merged.IRI_POK) as IRI_POK,
 
         {{ km_sum('merged', rules.paved.surf_types, none, rules.paved.ranges.good.max, 'P_GOOD_KM', 'SK_LENGTH', 'IRI_POK') }},
@@ -56,4 +55,5 @@ FROM
     ) merged
 
     GROUP BY merged.LINKID
-)
+) base
+{{ join_satker_balai('base') }}
