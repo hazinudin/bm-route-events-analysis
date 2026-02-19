@@ -15,3 +15,10 @@ sources:
       - name: RNI_2_2024
       - name: RNI_1_2025
       - name: RNI_2_2025
+
+  - name: misc
+    schema: MISC
+    tables:
+      - name: MAP_PPK_ROUTE
+      - name: MAP_BALAI_ROUTE
+      - name: MAP_BALAI_PROV
