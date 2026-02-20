@@ -34,6 +34,7 @@ with source_data as (
                 TO_STA,
                 SEGMENT_LENGTH,
                 SURF_TYPE,
+                SURF_WIDTH,
                 LANE_CODE,
                 ROAD_TYPE,
                 MED_WIDTH,
@@ -49,10 +50,6 @@ with source_data as (
                         '{{ route }}'{%- if not loop.last -%}, {%- endif -%}
                     {%- endfor -%}
                 )
-            {%- else -%}
-                {%- if max_update_date -%}
-                    AND UPDATE_DATE > '{{ max_update_date }}'
-                {%- endif -%}
             {%- endif -%}
 
         {%- else -%}
@@ -65,6 +62,7 @@ with source_data as (
                 TO_STA,
                 SEGMENT_LENGTH,
                 SURF_TYPE,
+                SURF_WIDTH,
                 LANE_CODE,
                 ROAD_TYPE,
                 MED_WIDTH,
@@ -87,6 +85,7 @@ with source_data as (
                 TO_STA,
                 SEGMENT_LENGTH,
                 SURF_TYPE,
+                SURF_WIDTH,
                 LANE_CODE,
                 ROAD_TYPE,
                 MED_WIDTH,
