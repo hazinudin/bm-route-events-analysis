@@ -6,54 +6,27 @@
     )
 }}
 
-{% set rules = var('kemantapan_iri_ranges') %}
-
 SELECT
     sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
-    CURRENT_TIMESTAMP as UPDATE_DATE,
+    base.UPDATE_DATE,
     base.LINKID,
     SUBSTR(base.LINKID, 1, 2) as BM_PROV_ID,
     base.YEAR,
     base.SEMESTER,
     base.IRI_POK,
-    base.TOTAL_LENGTH,
-    {{ satker_balai_columns() }},
+    lrs.SK_LENGTH as TOTAL_LENGTH,
+    base.SATKER_PPK_ID,
+    base.BALAI_ID,
+    
+    {{ kemantapan_sk_columns('base', 'lrs') }}
 
-    {{kemantapan_columns()}}
-
-FROM
-(
-    SELECT
-        merged.LINKID as LINKID,
-        
-        {{var('year')}} as YEAR,
-        {{var('semester')}} as SEMESTER,
-        MAX(SK_LENGTH) as TOTAL_LENGTH,
-        AVG(merged.IRI_POK) as IRI_POK,
-
-        {{ km_sum('merged', rules.paved.surf_types, none, rules.paved.ranges.good.max, 'P_GOOD_KM', 'SK_LENGTH', 'IRI_POK') }},
-        {{ km_sum('merged', rules.paved.surf_types, rules.paved.ranges.fair.min, rules.paved.ranges.fair.max, 'P_FAIR_KM', 'SK_LENGTH', 'IRI_POK') }},
-        {{ km_sum('merged', rules.paved.surf_types, rules.paved.ranges.poor.min, rules.paved.ranges.poor.max, 'P_POOR_KM', 'SK_LENGTH', 'IRI_POK') }},
-        {{ km_sum('merged', rules.paved.surf_types, rules.paved.ranges.bad.min, none, 'P_BAD_KM', 'SK_LENGTH', 'IRI_POK') }},
-
-        {{ km_sum('merged', rules.unpaved.surf_types, none, rules.unpaved.ranges.good.max, 'UP_GOOD_KM', 'SK_LENGTH', 'IRI_POK') }},
-        {{ km_sum('merged', rules.unpaved.surf_types, rules.unpaved.ranges.fair.min, rules.unpaved.ranges.fair.max, 'UP_FAIR_KM', 'SK_LENGTH', 'IRI_POK') }},
-        {{ km_sum('merged', rules.unpaved.surf_types, rules.unpaved.ranges.poor.min, rules.unpaved.ranges.poor.max, 'UP_POOR_KM', 'SK_LENGTH', 'IRI_POK') }},
-        {{ km_sum('merged', rules.unpaved.surf_types, rules.unpaved.ranges.bad.min, none, 'UP_BAD_KM', 'SK_LENGTH', 'IRI_POK') }}
-
-    FROM (
-        select 
-            e.LINKID, 
-            AVG(e.IRI_POK) as IRI_POK, 
-            max(e.SURF_TYPE) as SURF_TYPE, 
-            max(e.SEGMENT_LENGTH) as SEGMENT_LENGTH, 
-            max(SK_LENGTH) as SK_LENGTH 
-        
-        from ({{ rni_iri_join(var('semester'), var('year'), var('routes', none)) }}) e
-        left join {{ref("active_lrs")}} f on e.LINKID = f.LINKID
-        GROUP BY e.LINKID, e.FROM_STA, e.TO_STA
-    ) merged
-
-    GROUP BY merged.LINKID
-) base
-{{ join_satker_balai('base') }}
+FROM {{ ref("kemantapan_mean_iri_pok") }} base
+LEFT JOIN {{ ref("active_lrs") }} lrs ON base.LINKID = lrs.LINKID
+WHERE base.YEAR = {{ var('year') }} AND base.SEMESTER = {{ var('semester') }}
+{% if var('routes', none) %}
+    AND base.LINKID IN (
+        {%- for route in var('routes') -%}
+            '{{ route }}'{%- if not loop.last -%}, {%- endif -%}
+        {%- endfor -%}
+    )
+{% endif %}
