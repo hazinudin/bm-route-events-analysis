@@ -22,3 +22,5 @@ sources:
       - name: MAP_PPK_ROUTE
       - name: MAP_BALAI_ROUTE
       - name: MAP_BALAI_PROV
+      - name: MAP_PROV_ROUTE
+      - name: REF_PROVINCE
