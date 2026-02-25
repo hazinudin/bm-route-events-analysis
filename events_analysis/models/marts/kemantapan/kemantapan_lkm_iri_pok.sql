@@ -9,10 +9,9 @@
 {% set rules = var('kemantapan_iri_ranges') %}
 
 SELECT
-    sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
     CURRENT_TIMESTAMP as UPDATE_DATE,
     base.LINKID,
-    SUBSTR(base.LINKID, 1, 2) as BM_PROV_ID,
+    {{ prov_name_column() }} as BM_PROV_ID,
     base.YEAR,
     base.SEMESTER,
     base.IRI_POK,
@@ -44,14 +43,14 @@ FROM
     FROM (
         select 
             e.LINKID, 
-            AVG(e.IRI_POK) as IRI_POK, 
-            max(e.SURF_TYPE) as SURF_TYPE, 
-            max(e.SEGMENT_LENGTH) as SEGMENT_LENGTH 
+            e.IRI_POK, 
+            e.SURF_TYPE, 
+            e.SEGMENT_LENGTH 
         
         from ({{ rni_iri_join(var('semester'), var('year'), var('routes', none)) }}) e
-        GROUP BY e.LINKID, e.FROM_STA, e.TO_STA
     ) merged
 
     GROUP BY merged.LINKID
 ) base
 {{ join_satker_balai('base') }}
+{{ get_prov_name('base') }}

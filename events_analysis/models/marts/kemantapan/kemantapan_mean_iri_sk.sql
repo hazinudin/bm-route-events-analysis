@@ -10,7 +10,7 @@ SELECT
     sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
     base.UPDATE_DATE,
     base.LINKID,
-    SUBSTR(base.LINKID, 1, 2) as BM_PROV_ID,
+    base.BM_PROV_ID,
     base.YEAR,
     base.SEMESTER,
     base.IRI,
