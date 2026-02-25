@@ -10,7 +10,8 @@
 
 SELECT 
 sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
-t2.LINKID, 
+t2.LINKID,
+MAX({{ prov_name_column() }}) as BM_PROV_ID, 
 SUM(t2.SEGMENT_LENGTH) AS TOTAL_LENGTH, 
 SUM(t2.LANE_WIDTH*t2.SEGMENT_LENGTH)/SUM(t2.SEGMENT_LENGTH) AS LANE_WIDTH, 
 SUM(CASE WHEN t2.LANE_WIDTH <= 4.5 THEN t2.SEGMENT_LENGTH ELSE 0 END) AS WIDTH_CAT_1, 
@@ -62,4 +63,5 @@ FROM
     ) t0
     GROUP BY LINKID, FROM_STA
 ) t2 
+{{ get_prov_name('t2') }}
 GROUP BY t2.LINKID

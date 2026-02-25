@@ -9,6 +9,7 @@
 select
 sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
 rni.LINKID,
+rni.BM_PROV_ID,
 lrs.SK_LENGTH as TOTAL_LENGTH,
 LANE_WIDTH,
 (WIDTH_CAT_1*(lrs.SK_LENGTH/TOTAL_LENGTH)) as WIDTH_CAT_1,

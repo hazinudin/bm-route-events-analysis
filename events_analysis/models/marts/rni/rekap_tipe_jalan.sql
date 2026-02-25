@@ -10,7 +10,8 @@
 
 SELECT 
 sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
-t1.LINKID, 
+t1.LINKID,
+MAX({{ prov_name_column() }}) as BM_PROV_ID, 
 SUM(t1.SEGMENT_LENGTH) AS TOTAL_LENGTH, 
 SUM(CASE WHEN t1.ROAD_TYPE IN (1, 6) THEN t1.SEGMENT_LENGTH ELSE 0 END) AS ROAD_TYPE_1, 
 SUM(CASE WHEN t1.ROAD_TYPE IN (2, 7) THEN t1.SEGMENT_LENGTH ELSE 0 END) AS ROAD_TYPE_2, 
@@ -36,4 +37,5 @@ FROM
     AND semester = {{var('semester')}} 
     GROUP BY LINKID, FROM_STA
 ) t1 
+{{ get_prov_name('t1') }}
 GROUP BY t1.LINKID

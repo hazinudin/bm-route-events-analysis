@@ -9,6 +9,7 @@
 select
 sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
 rni.LINKID,
+rni.BM_PROV_ID,
 lrs.SK_LENGTH as TOTAL_LENGTH,
 (ASPAL*(lrs.SK_LENGTH/TOTAL_LENGTH)) as ASPAL,
 (RIGID*(lrs.SK_LENGTH/TOTAL_LENGTH)) as RIGID,
