@@ -19,7 +19,9 @@ SELECT
     base.TOTAL_LENGTH,
     {{ satker_balai_columns() }},
 
-    {{kemantapan_columns()}}
+    {{kemantapan_columns()}},
+    IRI_MARGINAL_P,
+    IRI_MARGINAL_UP
 
 FROM
 (
@@ -39,7 +41,10 @@ FROM
         {{ km_sum('merged', rules.unpaved.surf_types, none, rules.unpaved.ranges.good.max, 'UP_GOOD_KM', none, 'IRI') }},
         {{ km_sum('merged', rules.unpaved.surf_types, rules.unpaved.ranges.fair.min, rules.unpaved.ranges.fair.max, 'UP_FAIR_KM', none, 'IRI') }},
         {{ km_sum('merged', rules.unpaved.surf_types, rules.unpaved.ranges.poor.min, rules.unpaved.ranges.poor.max, 'UP_POOR_KM', none, 'IRI') }},
-        {{ km_sum('merged', rules.unpaved.surf_types, rules.unpaved.ranges.bad.min, none, 'UP_BAD_KM', none, 'IRI') }}
+        {{ km_sum('merged', rules.unpaved.surf_types, rules.unpaved.ranges.bad.min, none, 'UP_BAD_KM', none, 'IRI') }},
+
+        {{ km_sum_inclusive('merged', rules.paved.surf_types, 6, 8, 'IRI_MARGINAL_P', none, 'IRI') }},
+        {{ km_sum_inclusive('merged', rules.unpaved.surf_types, 11, 12, 'IRI_MARGINAL_UP', none, 'IRI') }}
 
     FROM (
         select 
