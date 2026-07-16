@@ -12,14 +12,16 @@ SELECT
     sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
     CURRENT_TIMESTAMP as UPDATE_DATE,
     base.LINKID,
-    {{ prov_name_column() }} as BM_PROV_ID,
+    {{ prov_name_column('base') }} as BM_PROV_ID,
     base.YEAR,
     base.SEMESTER,
     base.IRI,
     base.TOTAL_LENGTH,
     {{ satker_balai_columns() }},
 
-    {{kemantapan_columns()}}
+    {{kemantapan_columns()}},
+    IRI_MARGINAL_P,
+    IRI_MARGINAL_UP
 
 FROM
 (
@@ -57,5 +59,5 @@ FROM
 
     GROUP BY merged.LINKID
 ) base
-{{ join_satker_balai('base') }}
+{# {{ join_satker_balai('base') }} #}
 {{ get_prov_name('base') }}

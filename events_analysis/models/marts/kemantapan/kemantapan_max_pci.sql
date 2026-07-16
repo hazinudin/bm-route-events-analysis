@@ -12,7 +12,7 @@ SELECT
     sde.gdb_util.next_rowid({{"'"+this.schema+"'"}}, {{"'"+this.name+"'"}}) as OBJECTID,
     CURRENT_TIMESTAMP as UPDATE_DATE,
     base.LINKID,
-    {{ prov_name_column() }} as BM_PROV_ID,
+    {{ prov_name_column('base') }} as BM_PROV_ID,
     base.YEAR,
     base.PCI,
     base.TOTAL_LENGTH,
@@ -52,5 +52,5 @@ FROM
 
     GROUP BY merged.LINKID
 ) base
-{{ join_satker_balai('base') }}
+{# {{ join_satker_balai('base') }} #}
 {{ get_prov_name('base') }}

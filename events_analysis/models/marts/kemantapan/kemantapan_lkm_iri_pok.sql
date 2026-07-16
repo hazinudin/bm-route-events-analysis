@@ -11,7 +11,7 @@
 SELECT
     CURRENT_TIMESTAMP as UPDATE_DATE,
     base.LINKID,
-    {{ prov_name_column() }} as BM_PROV_ID,
+    {{ prov_name_column('base') }} as BM_PROV_ID,
     base.YEAR,
     base.SEMESTER,
     base.IRI_POK,

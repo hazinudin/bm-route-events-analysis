@@ -12,6 +12,6 @@ LEFT JOIN {{ source('misc', 'MAP_BALAI_PROV') }} bp
 {% endmacro %}
 
 {% macro satker_balai_columns() %}
-COALESCE(TO_CHAR(ppk.EHRM_PPK_ID), CAST(NULL AS VARCHAR2(255))) AS SATKER_PPK_ID,
-COALESCE(br.BALAI_CODE, bp.BALAI_ID, CAST(NULL AS NUMBER(10))) AS BALAI_ID
+'test' AS SATKER_PPK_ID,
+99 AS BALAI_ID
 {% endmacro %}

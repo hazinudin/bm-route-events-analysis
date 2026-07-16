@@ -17,6 +17,8 @@ SELECT
     lrs.SK_LENGTH as TOTAL_LENGTH,
     base.SATKER_PPK_ID,
     base.BALAI_ID,
+    base.IRI_MARGINAL_P*(lrs.SK_LENGTH/base.TOTAL_LENGTH) as IRI_MARGINAL_P,
+    base.IRI_MARGINAL_UP*(lrs.SK_LENGTH/base.TOTAL_LENGTH) as IRI_MARGINAL_UP,
 
     {{ kemantapan_sk_columns('base', 'lrs') }}
 

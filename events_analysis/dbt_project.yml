@@ -72,3 +72,6 @@ vars:
                 fair:  { min: 55, max: 70 }
                 poor:  { min: 55, max: 40 }
                 bad:   { min: null, max: 40 }
+
+    year: 2025
+    semester: 1

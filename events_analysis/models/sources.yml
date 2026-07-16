@@ -15,6 +15,7 @@ sources:
       - name: RNI_2_2024
       - name: RNI_1_2025
       - name: RNI_2_2025
+      - name: RNI_1_2026
 
   - name: misc
     schema: MISC

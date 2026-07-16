@@ -6,6 +6,7 @@ LEFT JOIN {{ source('misc', 'REF_PROVINCE') }} rp
     ON SUBSTR({{ source_alias }}.{{ linkid_column }}, 1, 2) = rp.BM_PROV_ID
 {% endmacro %}
 
-{% macro prov_name_column() %}
-COALESCE(mpr.PROV_NAME, rp.PROV_NAME)
+{% macro prov_name_column(source_alias) %}
+{# COALESCE(mpr.PROV_NAME, rp.PROV_NAME) #}
+SUBSTR({{ source_alias }}.LINKID, 1, 2)
 {% endmacro %}
