@@ -2,7 +2,8 @@
     config(
         materialized='incremental',
         unique_key=['LINKID', 'YEAR'],
-        incremental_strategy='delete+insert'
+        incremental_strategy='delete+insert',
+        tags=['pci']
     )
 }}
 

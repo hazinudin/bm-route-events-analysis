@@ -9,5 +9,21 @@ dependencies = [
   "dbt-oracle>=1.7,<2.0",
   "dotenv>=0.9.9",
   "pandas>=2.3.3",
+  "pyarrow>=25.0.0",
   "sqlalchemy>=2.0.45",
+  "pika>=1.3",
+  "pydantic>=2.0",
+  "opentelemetry-sdk>=1.27",
+  "opentelemetry-exporter-otlp>=1.27",
 ]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "pytest-mock>=3.14",
+  "testcontainers[rabbitmq]>=4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]

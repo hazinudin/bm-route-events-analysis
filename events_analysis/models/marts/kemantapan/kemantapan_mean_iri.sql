@@ -2,7 +2,8 @@
     config(
         materialized='incremental',
         unique_key=['LINKID', 'YEAR', 'SEMESTER'],
-        incremental_strategy='delete+insert'
+        incremental_strategy='delete+insert',
+        tags=['iri']
     )
 }}
 
