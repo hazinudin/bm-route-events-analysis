@@ -1,0 +1,13 @@
+events_analysis:
+  target: dev
+  outputs:
+    dev:
+      type: oracle
+      user: "{{ env_var('ORACLE_USER') }}"
+      password: "{{ env_var('ORACLE_PASSWORD') }}"
+      host: "{{ env_var('ORACLE_HOST') }}"
+      port: 1521
+      service: "{{ env_var('ORACLE_SERVICE') }}"
+      schema: "{{ env_var('ORACLE_SCHEMA', 'SMD') }}"
+      threads: 1
+      thin_mode: true

@@ -1,0 +1,26 @@
+services:
+  dbt-events-consumer:
+    image: registry.example.com/bm-route-events-analysis:${IMAGE_TAG}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30m
+    env_file:
+      - .env
+    environment:
+      DBT_PROJECT_DIR: /app/events_analysis
+      DBT_PROFILES_DIR: /run/secrets/dbt
+      RABBITMQ_QUEUE: dbt.events.worker
+      RABBITMQ_DLQ: dbt.events.worker.dlq
+      RABBITMQ_ROUTING_KEYS: verified.rni,verified.iri,verified.pci
+      LOG_DIR: /var/log/dbt-events
+    volumes:
+      - ./secrets/profiles.yml:/run/secrets/dbt/profiles.yml:ro
+      - dbt-target:/app/events_analysis/target
+      - consumer-logs:/var/log/dbt-events
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  dbt-target:
+  consumer-logs:
