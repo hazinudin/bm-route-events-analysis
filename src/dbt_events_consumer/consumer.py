@@ -361,28 +361,3 @@ class EventConsumer:
         if duration is not None:
             extra["duration_s"] = round(duration, 3)
         self._logger.error("message rejected", extra=extra)
-
-
-def start_consuming(
-    connection: pika.BlockingConnection,
-    settings: Settings,
-    runner: DbtRunnerWrapper,
-    logger: logging.Logger,
-) -> None:
-    channel = connection.channel()
-    channel.basic_qos(prefetch_count=1)
-
-    consumer = EventConsumer(settings, runner, logger)
-    channel.basic_consume(
-        queue=settings.rabbitmq_queue,
-        on_message_callback=consumer.on_message,
-        auto_ack=False,
-    )
-    logger.info(
-        "consumer started",
-        extra={
-            "queue": settings.rabbitmq_queue,
-            "routing_keys": list(settings.rabbitmq_routing_keys),
-        },
-    )
-    channel.start_consuming()
