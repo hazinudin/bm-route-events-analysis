@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any
+from typing import Any, Protocol
 
 import pika
 from pydantic import ValidationError
@@ -22,6 +22,25 @@ ROUTING_TO_SELECT: dict[str, str] = {
 RETRY_HEADER = "x-retry-count"
 
 
+class RabbitChannel(Protocol):
+    """Subset of the Pika channel API used by the event consumer."""
+
+    connection: Any
+
+    def basic_ack(self, *, delivery_tag: int) -> None: ...
+
+    def basic_nack(self, *, delivery_tag: int, requeue: bool) -> None: ...
+
+    def basic_publish(
+        self,
+        *,
+        exchange: str,
+        routing_key: str,
+        body: bytes,
+        properties: pika.spec.BasicProperties,
+    ) -> Any: ...
+
+
 class EventConsumer:
     def __init__(
         self,
@@ -36,114 +55,193 @@ class EventConsumer:
 
     def on_message(
         self,
-        channel: pika.adapters.blocking_connection.BlockingChannel,
+        channel: RabbitChannel,
         method: pika.spec.Basic.Deliver,
         properties: pika.spec.BasicProperties,
         body: bytes,
     ) -> None:
         delivery_tag = method.delivery_tag
         routing_key = method.routing_key
-        event_id: str | None = None
 
         with self._tracer.start_as_current_span("consume_message") as span:
             span.set_attribute("messaging.system", "rabbitmq")
             span.set_attribute("messaging.destination", routing_key)
 
             start = time.monotonic()
-            try:
-                msg = self._parse_body(body, routing_key)
-            except (ValidationError, json.JSONDecodeError, TypeError) as exc:
-                event_id = self._extract_event_id(body)
-                self._log_failure(event_id, routing_key, "invalid_payload", str(exc))
-                span.set_attribute("dlq_reason", "invalid_payload")
-                channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
+            msg = self._parse_or_reject(
+                channel, delivery_tag, routing_key, body, span,
+            )
+            if msg is None:
                 return
 
             event_id = msg.event_id
             span.set_attribute("event_id", event_id)
 
-            if routing_key not in ROUTING_TO_SELECT:
-                self._log_failure(
-                    event_id, routing_key, "unknown_routing_key",
-                    f"no dbt selection for routing key {routing_key!r}",
-                )
-                span.set_attribute("dlq_reason", "unknown_routing_key")
-                channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
+            if not self._validate_routing(
+                channel, delivery_tag, routing_key, msg, span,
+            ):
                 return
 
-            if msg.routing_key != routing_key:
-                self._log_failure(
-                    event_id, routing_key, "invalid_payload",
-                    f"envelope routing key {routing_key!r} != body "
-                    f"routing_key {msg.routing_key!r}",
-                )
-                span.set_attribute("dlq_reason", "invalid_payload")
-                channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
-                return
-
-            selection = ROUTING_TO_SELECT[routing_key]
-            span.set_attribute("dbt.selection", selection)
-            span.set_attribute("dbt.year", msg.year)
-            span.set_attribute("dbt.semester", msg.semester)
-
-            cli_args = self._build_cli_args(selection, msg)
-
-            try:
-                result = self._runner.run(cli_args, connection=channel.connection)
-            except Exception as exc:
-                self._handle_transient(
-                    channel, delivery_tag, properties, body,
-                    routing_key, event_id, exc, span,
-                )
-                return
-
-            duration = time.monotonic() - start
-            span.set_attribute("dbt.duration_s", round(duration, 3))
-
-            node_results = result.result or []
-            node_count = len(node_results)
-
-            if result.success and node_count == 0:
-                self._log_failure(
-                    event_id, routing_key, "empty_selection",
-                    f"selection {selection!r} produced 0 models",
-                    duration=duration,
-                )
-                span.set_attribute("dlq_reason", "empty_selection")
-                channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
-                return
-
-            if not result.success and result.exception is None:
-                statuses = self._collect_node_statuses(node_results)
-                self._log_failure(
-                    event_id, routing_key, "dbt_run_failed",
-                    f"dbt run failed; node statuses: {statuses}",
-                    duration=duration,
-                )
-                span.set_attribute("dlq_reason", "dbt_run_failed")
-                span.set_attribute("dbt.node_count", node_count)
-                channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
-                return
-
-            if result.exception is not None:
-                self._handle_transient(
-                    channel, delivery_tag, properties, body,
-                    routing_key, event_id, result.exception, span,
-                )
-                return
-
-            self._logger.info(
-                "dbt run succeeded",
-                extra={
-                    "event_id": event_id,
-                    "routing_key": routing_key,
-                    "selection": selection,
-                    "duration_s": round(duration, 3),
-                    "node_count": node_count,
-                },
+            self._run_message(
+                channel, delivery_tag, properties, body, routing_key,
+                msg, span, start,
             )
+
+    def _parse_or_reject(
+        self,
+        channel: RabbitChannel,
+        delivery_tag: int,
+        routing_key: str,
+        body: bytes,
+        span: Any,
+    ) -> TriggerMessage | None:
+        try:
+            return self._parse_body(body, routing_key)
+        except (ValidationError, json.JSONDecodeError, TypeError) as exc:
+            event_id = self._extract_event_id(body)
+            self._reject_message(
+                channel, delivery_tag, span, event_id, routing_key,
+                "invalid_payload", str(exc),
+            )
+            return None
+
+    def _validate_routing(
+        self,
+        channel: RabbitChannel,
+        delivery_tag: int,
+        routing_key: str,
+        msg: TriggerMessage,
+        span: Any,
+    ) -> bool:
+        if routing_key not in ROUTING_TO_SELECT:
+            self._reject_message(
+                channel, delivery_tag, span, msg.event_id, routing_key,
+                "unknown_routing_key",
+                f"no dbt selection for routing key {routing_key!r}",
+            )
+            return False
+
+        if msg.routing_key != routing_key:
+            self._reject_message(
+                channel, delivery_tag, span, msg.event_id, routing_key,
+                "invalid_payload",
+                f"envelope routing key {routing_key!r} != body "
+                f"routing_key {msg.routing_key!r}",
+            )
+            return False
+
+        return True
+
+    def _run_message(
+        self,
+        channel: RabbitChannel,
+        delivery_tag: int,
+        properties: pika.spec.BasicProperties,
+        body: bytes,
+        routing_key: str,
+        msg: TriggerMessage,
+        span: Any,
+        start: float,
+    ) -> None:
+        selection = ROUTING_TO_SELECT[routing_key]
+        span.set_attribute("dbt.selection", selection)
+        span.set_attribute("dbt.year", msg.year)
+        span.set_attribute("dbt.semester", msg.semester)
+
+        try:
+            result = self._runner.run(
+                self._build_cli_args(selection, msg),
+                connection=channel.connection,
+            )
+        except Exception as exc:
+            self._handle_transient(
+                channel, delivery_tag, properties, body,
+                routing_key, msg.event_id, exc, span,
+            )
+            return
+
+        duration = time.monotonic() - start
+        span.set_attribute("dbt.duration_s", round(duration, 3))
+        self._handle_result(
+            channel, delivery_tag, properties, body, routing_key,
+            selection, msg.event_id, result, span, duration,
+        )
+
+    def _handle_result(
+        self,
+        channel: RabbitChannel,
+        delivery_tag: int,
+        properties: pika.spec.BasicProperties,
+        body: bytes,
+        routing_key: str,
+        selection: str,
+        event_id: str,
+        result: Any,
+        span: Any,
+        duration: float,
+    ) -> None:
+        node_results = result.result or []
+        node_count = len(node_results)
+
+        if result.success and node_count == 0:
+            self._reject_message(
+                channel, delivery_tag, span, event_id, routing_key,
+                "empty_selection",
+                f"selection {selection!r} produced 0 models",
+                duration=duration,
+            )
+            return
+
+        if not result.success and result.exception is None:
+            statuses = self._collect_node_statuses(node_results)
+            self._reject_message(
+                channel, delivery_tag, span, event_id, routing_key,
+                "dbt_run_failed",
+                f"dbt run failed; node statuses: {statuses}",
+                duration=duration,
+                node_count=node_count,
+            )
+            return
+
+        if result.exception is not None:
+            self._handle_transient(
+                channel, delivery_tag, properties, body, routing_key,
+                event_id, result.exception, span,
+            )
+            return
+
+        self._logger.info(
+            "dbt run succeeded",
+            extra={
+                "event_id": event_id,
+                "routing_key": routing_key,
+                "selection": selection,
+                "duration_s": round(duration, 3),
+                "node_count": node_count,
+            },
+        )
+        span.set_attribute("dbt.node_count", node_count)
+        channel.basic_ack(delivery_tag=delivery_tag)
+
+    def _reject_message(
+        self,
+        channel: RabbitChannel,
+        delivery_tag: int,
+        span: Any,
+        event_id: str | None,
+        routing_key: str,
+        reason: str,
+        detail: str,
+        duration: float | None = None,
+        node_count: int | None = None,
+    ) -> None:
+        self._log_failure(
+            event_id, routing_key, reason, detail, duration=duration,
+        )
+        span.set_attribute("dlq_reason", reason)
+        if node_count is not None:
             span.set_attribute("dbt.node_count", node_count)
-            channel.basic_ack(delivery_tag=delivery_tag)
+        channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
 
     def _parse_body(self, body: bytes, routing_key: str) -> TriggerMessage:
         payload = json.loads(body)
@@ -176,7 +274,7 @@ class EventConsumer:
 
     def _handle_transient(
         self,
-        channel: pika.adapters.blocking_connection.BlockingChannel,
+        channel: RabbitChannel,
         delivery_tag: int,
         properties: pika.spec.BasicProperties,
         body: bytes,
