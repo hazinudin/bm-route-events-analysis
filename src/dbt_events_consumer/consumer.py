@@ -6,6 +6,7 @@ import time
 from typing import Any, Protocol
 
 import pika
+from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 
 from dbt_events_consumer.config import Settings
@@ -102,6 +103,7 @@ class EventConsumer:
             self._reject_message(
                 channel, delivery_tag, span, event_id, routing_key,
                 "invalid_payload", str(exc),
+                exception=exc,
             )
             return None
 
@@ -234,10 +236,14 @@ class EventConsumer:
         detail: str,
         duration: float | None = None,
         node_count: int | None = None,
+        exception: BaseException | None = None,
     ) -> None:
         self._log_failure(
             event_id, routing_key, reason, detail, duration=duration,
         )
+        span.set_status(Status(StatusCode.ERROR, reason))
+        if exception is not None:
+            span.record_exception(exception)
         span.set_attribute("dlq_reason", reason)
         if node_count is not None:
             span.set_attribute("dbt.node_count", node_count)
@@ -284,6 +290,8 @@ class EventConsumer:
         span: Any,
     ) -> None:
         retry_count = self._read_retry_count(properties)
+        span.record_exception(exc)
+        span.set_status(Status(StatusCode.ERROR, str(exc)))
 
         if retry_count >= self._settings.retry_max:
             self._log_failure(

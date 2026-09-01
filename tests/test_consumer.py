@@ -3,6 +3,7 @@ import logging
 from unittest.mock import MagicMock, call
 
 import pytest
+from opentelemetry.trace import StatusCode
 from pydantic import ValidationError
 
 from dbt_events_consumer.consumer import (
@@ -351,3 +352,62 @@ class TestRetryPreservesProperties:
         pub_props = pub_call.kwargs["properties"]
         assert pub_props.content_type == "application/json"
         assert pub_props.delivery_mode == 2
+
+
+class TestTracingFailures:
+    def test_rejected_message_marks_span_as_error(
+        self, consumer, mock_channel
+    ):
+        cons, settings, runner = consumer
+        span = MagicMock()
+
+        cons._reject_message(
+            mock_channel,
+            1,
+            span,
+            "event-1",
+            "verified.rni",
+            "dbt_run_failed",
+            "dbt run failed",
+        )
+
+        status = span.set_status.call_args.args[0]
+        assert status.status_code == StatusCode.ERROR
+        assert status.description == "dbt_run_failed"
+
+    def test_rejected_exception_is_recorded_on_span(
+        self, consumer, mock_channel
+    ):
+        cons, settings, runner = consumer
+        span = MagicMock()
+
+        cons._parse_or_reject(
+            mock_channel, 1, "verified.rni", b"not json{", span
+        )
+
+        exception = span.record_exception.call_args.args[0]
+        assert isinstance(exception, json.JSONDecodeError)
+        status = span.set_status.call_args.args[0]
+        assert status.status_code == StatusCode.ERROR
+
+    def test_transient_exception_is_recorded_on_span(
+        self, consumer, mock_channel
+    ):
+        cons, settings, runner = consumer
+        span = MagicMock()
+        exception = RuntimeError("Oracle timeout")
+
+        cons._handle_transient(
+            mock_channel,
+            1,
+            _make_properties(),
+            _valid_body(),
+            "verified.rni",
+            "event-1",
+            exception,
+            span,
+        )
+
+        span.record_exception.assert_called_once_with(exception)
+        status = span.set_status.call_args.args[0]
+        assert status.status_code == StatusCode.ERROR
