@@ -12,6 +12,9 @@ class TopologyError(Exception):
 
 
 def declare_topology(connection: Any, settings: Settings) -> None:
+    """
+    Trigger all exchanges and queues declaration in RabbitMQ.
+    """
     channel = connection.channel()
     try:
         _declare_exchanges(channel, settings)
@@ -27,6 +30,9 @@ def declare_topology(connection: Any, settings: Settings) -> None:
 
 
 def _declare_exchanges(channel: Any, settings: Settings) -> None:
+    """
+    Declares all exchanges.
+    """
     channel.exchange_declare(
         exchange=settings.rabbitmq_exchange,
         exchange_type="topic",
@@ -45,6 +51,9 @@ def _declare_exchanges(channel: Any, settings: Settings) -> None:
 
 
 def _declare_queues(channel: Any, settings: Settings) -> None:
+    """
+    Declares all queues along with its argument.
+    """
     channel.queue_declare(
         queue=settings.rabbitmq_queue,
         durable=True,
@@ -70,6 +79,9 @@ def _declare_queues(channel: Any, settings: Settings) -> None:
 
 
 def _bind_queues(channel: Any, settings: Settings) -> None:
+    """
+    Bind queues to the exchange.
+    """
     for routing_key in settings.rabbitmq_routing_keys:
         channel.queue_bind(
             exchange=settings.rabbitmq_exchange,
@@ -80,7 +92,7 @@ def _bind_queues(channel: Any, settings: Settings) -> None:
     channel.queue_bind(
         exchange=settings.retry_exchange,
         queue=settings.retry_queue,
-        routing_key="#",
+        routing_key="#",  # Matches any routing key
     )
 
     channel.queue_bind(

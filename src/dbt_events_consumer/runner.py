@@ -19,6 +19,9 @@ class DbtRunnerWrapper:
         cli_args: list[str],
         connection: Any | None = None,
     ) -> Any:
+        """
+        Ran the dbtRunner function along with its CLI arguments.
+        """
         full_args = list(cli_args) + [
             "--project-dir",
             self._project_dir,
@@ -26,6 +29,7 @@ class DbtRunnerWrapper:
             self._profiles_dir,
         ]
 
+        # If the RabbitMQ connection is not provided
         if connection is None:
             return self._runner.invoke(full_args)
 
@@ -37,9 +41,11 @@ class DbtRunnerWrapper:
             except Exception as exc:
                 result["error"] = exc
 
+        # If the RabbitMQ connection is provided, ran the dbt model build in separate thread
         thread = threading.Thread(target=worker, daemon=True)
         thread.start()
 
+        # Send RabbitMQ heartbeat while the dbt model build is running
         while thread.is_alive():
             connection.process_data_events(time_limit=0)
             thread.join(timeout=1.0)
