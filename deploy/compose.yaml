@@ -1,6 +1,6 @@
 services:
   dbt-events-consumer:
-    image: registry.example.com/bm-route-events-analysis:${IMAGE_TAG}
+    image: hazinuddin/dbt-route-events-worker:${IMAGE_TAG}
     restart: unless-stopped
     init: true
     stop_grace_period: 30m
@@ -13,14 +13,23 @@ services:
       RABBITMQ_DLQ: dbt.events.worker.dlq
       RABBITMQ_ROUTING_KEYS: verified.rni,verified.iri,verified.pci
       LOG_DIR: /var/log/dbt-events
+    networks:
+      - backend
     volumes:
       - ./secrets/profiles.yml:/run/secrets/dbt/profiles.yml:ro
       - dbt-target:/app/events_analysis/target
+      - dbt-logs:/app/events_analysis/logs
       - consumer-logs:/var/log/dbt-events
     read_only: true
     tmpfs:
       - /tmp
 
+networks:
+  backend:
+    external: true
+    name: bm-route-events_backend
+
 volumes:
+  dbt-logs:
   dbt-target:
   consumer-logs:

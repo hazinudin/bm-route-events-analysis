@@ -3,6 +3,7 @@ events_analysis:
   outputs:
     dev:
       type: oracle
+      protocol: tcp
       user: "{{ env_var('ORACLE_USER') }}"
       password: "{{ env_var('ORACLE_PASSWORD') }}"
       host: "{{ env_var('ORACLE_HOST') }}"
