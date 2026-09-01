@@ -146,15 +146,21 @@ class EventConsumer:
         start: float,
     ) -> None:
         selection = ROUTING_TO_SELECT[routing_key]
-        span.set_attribute("dbt.selection", selection)
-        span.set_attribute("dbt.year", msg.year)
-        span.set_attribute("dbt.semester", msg.semester)
 
         try:
-            result = self._runner.run(
-                self._build_cli_args(selection, msg),
-                connection=channel.connection,
-            )
+            with self._tracer.start_as_current_span("dbt_run") as run_span:
+                run_span.set_attribute("dbt.selection", selection)
+                run_span.set_attribute("dbt.year", msg.year)
+                run_span.set_attribute("dbt.semester", msg.semester)
+                result = self._runner.run(
+                    self._build_cli_args(selection, msg),
+                    connection=channel.connection,
+                )
+                if result.exception is not None:
+                    run_span.record_exception(result.exception)
+                    run_span.set_status(
+                        Status(StatusCode.ERROR, str(result.exception)),
+                    )
         except Exception as exc:
             self._handle_transient(
                 channel, delivery_tag, properties, body,

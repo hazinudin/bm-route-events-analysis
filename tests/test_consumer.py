@@ -3,6 +3,11 @@ import logging
 from unittest.mock import MagicMock, call
 
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
 from opentelemetry.trace import StatusCode
 from pydantic import ValidationError
 
@@ -411,3 +416,99 @@ class TestTracingFailures:
         span.record_exception.assert_called_once_with(exception)
         status = span.set_status.call_args.args[0]
         assert status.status_code == StatusCode.ERROR
+
+
+class TestDbtRunChildSpan:
+    def _consumer_with_test_tracer(self, consumer):
+        cons, settings, runner = consumer
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        cons._tracer = provider.get_tracer("test")
+        return cons, runner, exporter
+
+    def test_success_creates_dbt_run_child_span(
+        self, consumer, mock_channel
+    ):
+        cons, runner, exporter = self._consumer_with_test_tracer(consumer)
+        runner.run.return_value = _make_result(success=True, node_count=2)
+
+        cons.on_message(
+            mock_channel, _make_method("verified.rni"),
+            _make_properties(), _valid_body(),
+        )
+
+        spans = exporter.get_finished_spans()
+        assert [s.name for s in spans] == ["dbt_run", "consume_message"]
+
+        dbt_span, parent_span = spans
+        assert dbt_span.parent.span_id == parent_span.context.span_id
+        assert dbt_span.attributes["dbt.selection"] == "stg_rni_combined+"
+        assert dbt_span.attributes["dbt.year"] == 2025
+        assert dbt_span.attributes["dbt.semester"] == 2
+        assert dbt_span.status.status_code == StatusCode.UNSET
+        assert parent_span.status.status_code == StatusCode.UNSET
+        mock_channel.basic_ack.assert_called_once_with(delivery_tag=1)
+
+    def test_runner_exception_recorded_on_child_span(
+        self, consumer, mock_channel
+    ):
+        cons, runner, exporter = self._consumer_with_test_tracer(consumer)
+        runner.run.side_effect = RuntimeError("Oracle connection lost")
+
+        cons.on_message(
+            mock_channel, _make_method("verified.rni"),
+            _make_properties(), _valid_body(),
+        )
+
+        spans = exporter.get_finished_spans()
+        dbt_span = next(s for s in spans if s.name == "dbt_run")
+        parent_span = next(s for s in spans if s.name == "consume_message")
+
+        assert dbt_span.status.status_code == StatusCode.ERROR
+        exception_events = [
+            e for e in dbt_span.events if e.name == "exception"
+        ]
+        assert len(exception_events) == 1
+        attributes = exception_events[0].attributes
+        assert attributes["exception.type"] == "RuntimeError"
+        assert "Oracle connection lost" in attributes["exception.message"]
+        assert attributes["exception.stacktrace"]
+
+        assert parent_span.status.status_code == StatusCode.ERROR
+        mock_channel.basic_publish.assert_called_once()
+        mock_channel.basic_ack.assert_called_once_with(delivery_tag=1)
+
+    def test_result_exception_recorded_on_child_span(
+        self, consumer, mock_channel
+    ):
+        cons, runner, exporter = self._consumer_with_test_tracer(consumer)
+        try:
+            raise RuntimeError("dbt build crashed")
+        except RuntimeError as exc:
+            dbt_exc = exc
+        runner.run.return_value = _make_result(
+            success=False, exception=dbt_exc,
+        )
+
+        cons.on_message(
+            mock_channel, _make_method("verified.rni"),
+            _make_properties(), _valid_body(),
+        )
+
+        spans = exporter.get_finished_spans()
+        dbt_span = next(s for s in spans if s.name == "dbt_run")
+        parent_span = next(s for s in spans if s.name == "consume_message")
+
+        assert dbt_span.status.status_code == StatusCode.ERROR
+        exception_events = [
+            e for e in dbt_span.events if e.name == "exception"
+        ]
+        assert len(exception_events) == 1
+        assert "dbt build crashed" in (
+            exception_events[0].attributes["exception.message"]
+        )
+        assert exception_events[0].attributes["exception.stacktrace"]
+
+        assert parent_span.status.status_code == StatusCode.ERROR
+        mock_channel.basic_publish.assert_called_once()
