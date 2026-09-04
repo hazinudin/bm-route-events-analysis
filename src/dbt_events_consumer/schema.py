@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 
 class TriggerMessage(BaseModel):
-    event_id: str
+    job_id: str
     routing_key: str
     year: int
     semester: Literal[1, 2]

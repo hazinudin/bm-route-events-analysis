@@ -75,8 +75,8 @@ class EventConsumer:
             if msg is None:
                 return
 
-            event_id = msg.event_id
-            span.set_attribute("event_id", event_id)
+            job_id = msg.job_id
+            span.set_attribute("job_id", job_id)
 
             if not self._validate_routing(
                 channel, delivery_tag, routing_key, msg, span,
@@ -99,9 +99,9 @@ class EventConsumer:
         try:
             return self._parse_body(body, routing_key)
         except (ValidationError, json.JSONDecodeError, TypeError) as exc:
-            event_id = self._extract_event_id(body)
+            job_id = self._extract_job_id(body)
             self._reject_message(
-                channel, delivery_tag, span, event_id, routing_key,
+                channel, delivery_tag, span, job_id, routing_key,
                 "invalid_payload", str(exc),
                 exception=exc,
             )
@@ -117,7 +117,7 @@ class EventConsumer:
     ) -> bool:
         if routing_key not in ROUTING_TO_SELECT:
             self._reject_message(
-                channel, delivery_tag, span, msg.event_id, routing_key,
+                channel, delivery_tag, span, msg.job_id, routing_key,
                 "unknown_routing_key",
                 f"no dbt selection for routing key {routing_key!r}",
             )
@@ -125,7 +125,7 @@ class EventConsumer:
 
         if msg.routing_key != routing_key:
             self._reject_message(
-                channel, delivery_tag, span, msg.event_id, routing_key,
+                channel, delivery_tag, span, msg.job_id, routing_key,
                 "invalid_payload",
                 f"envelope routing key {routing_key!r} != body "
                 f"routing_key {msg.routing_key!r}",
@@ -164,7 +164,7 @@ class EventConsumer:
         except Exception as exc:
             self._handle_transient(
                 channel, delivery_tag, properties, body,
-                routing_key, msg.event_id, exc, span,
+                routing_key, msg.job_id, exc, span,
             )
             return
 
@@ -172,7 +172,7 @@ class EventConsumer:
         span.set_attribute("dbt.duration_s", round(duration, 3))
         self._handle_result(
             channel, delivery_tag, properties, body, routing_key,
-            selection, msg.event_id, result, span, duration,
+            selection, msg.job_id, result, span, duration,
         )
 
     def _handle_result(
@@ -183,7 +183,7 @@ class EventConsumer:
         body: bytes,
         routing_key: str,
         selection: str,
-        event_id: str,
+        job_id: str,
         result: Any,
         span: Any,
         duration: float,
@@ -193,7 +193,7 @@ class EventConsumer:
 
         if result.success and node_count == 0:
             self._reject_message(
-                channel, delivery_tag, span, event_id, routing_key,
+                channel, delivery_tag, span, job_id, routing_key,
                 "empty_selection",
                 f"selection {selection!r} produced 0 models",
                 duration=duration,
@@ -203,7 +203,7 @@ class EventConsumer:
         if not result.success and result.exception is None:
             statuses = self._collect_node_statuses(node_results)
             self._reject_message(
-                channel, delivery_tag, span, event_id, routing_key,
+                channel, delivery_tag, span, job_id, routing_key,
                 "dbt_run_failed",
                 f"dbt run failed; node statuses: {statuses}",
                 duration=duration,
@@ -214,14 +214,14 @@ class EventConsumer:
         if result.exception is not None:
             self._handle_transient(
                 channel, delivery_tag, properties, body, routing_key,
-                event_id, result.exception, span,
+                job_id, result.exception, span,
             )
             return
 
         self._logger.info(
             "dbt run succeeded",
             extra={
-                "event_id": event_id,
+                "job_id": job_id,
                 "routing_key": routing_key,
                 "selection": selection,
                 "duration_s": round(duration, 3),
@@ -236,7 +236,7 @@ class EventConsumer:
         channel: RabbitChannel,
         delivery_tag: int,
         span: Any,
-        event_id: str | None,
+        job_id: str | None,
         routing_key: str,
         reason: str,
         detail: str,
@@ -245,7 +245,7 @@ class EventConsumer:
         exception: BaseException | None = None,
     ) -> None:
         self._log_failure(
-            event_id, routing_key, reason, detail, duration=duration,
+            job_id, routing_key, reason, detail, duration=duration,
         )
         span.set_status(Status(StatusCode.ERROR, reason))
         if exception is not None:
@@ -259,9 +259,9 @@ class EventConsumer:
         payload = json.loads(body)
         return TriggerMessage(**payload)
 
-    def _extract_event_id(self, body: bytes) -> str | None:
+    def _extract_job_id(self, body: bytes) -> str | None:
         try:
-            return json.loads(body).get("event_id")
+            return json.loads(body).get("job_id")
         except (json.JSONDecodeError, TypeError):
             return None
 
@@ -291,7 +291,7 @@ class EventConsumer:
         properties: pika.spec.BasicProperties,
         body: bytes,
         routing_key: str,
-        event_id: str | None,
+        job_id: str | None,
         exc: Exception,
         span: Any,
     ) -> None:
@@ -301,7 +301,7 @@ class EventConsumer:
 
         if retry_count >= self._settings.retry_max:
             self._log_failure(
-                event_id, routing_key, "retry_saturated",
+                job_id, routing_key, "retry_saturated",
                 f"transient failures exhausted after {retry_count} retries: {exc}",
             )
             span.set_attribute("dlq_reason", "retry_saturated")
@@ -333,7 +333,7 @@ class EventConsumer:
         self._logger.warning(
             "transient failure, republishing for retry",
             extra={
-                "event_id": event_id,
+                "job_id": job_id,
                 "routing_key": routing_key,
                 "retry_count": next_retry,
                 "backoff_ms": expiration_ms,
@@ -360,14 +360,14 @@ class EventConsumer:
 
     def _log_failure(
         self,
-        event_id: str | None,
+        job_id: str | None,
         routing_key: str,
         reason: str,
         detail: str,
         duration: float | None = None,
     ) -> None:
         extra: dict[str, Any] = {
-            "event_id": event_id,
+            "job_id": job_id,
             "routing_key": routing_key,
             "dlq_reason": reason,
             "detail": detail,
