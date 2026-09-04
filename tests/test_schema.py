@@ -8,7 +8,7 @@ from dbt_events_consumer.schema import TriggerMessage
 
 def _valid_payload(**overrides):
     payload = {
-        "event_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
+        "job_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
         "routing_key": "verified.rni",
         "year": 2025,
         "semester": 2,
@@ -20,7 +20,7 @@ def _valid_payload(**overrides):
 
 def test_valid_rni_payload():
     msg = TriggerMessage(**_valid_payload())
-    assert msg.event_id == "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12"
+    assert msg.job_id == "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12"
     assert msg.routing_key == "verified.rni"
     assert msg.year == 2025
     assert msg.semester == 2
@@ -60,9 +60,9 @@ def test_missing_semester_raises():
         TriggerMessage(**payload)
 
 
-def test_missing_event_id_raises():
+def test_missing_job_id_raises():
     payload = _valid_payload()
-    del payload["event_id"]
+    del payload["job_id"]
     with pytest.raises(ValidationError):
         TriggerMessage(**payload)
 

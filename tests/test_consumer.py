@@ -55,7 +55,7 @@ def _make_method(routing_key="verified.rni"):
 
 def _valid_body(**overrides):
     body = {
-        "event_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
+        "job_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
         "routing_key": "verified.rni",
         "year": 2025,
         "semester": 2,
@@ -129,7 +129,7 @@ class TestU1ToU4ValidPayloads:
         runner.run.return_value = _make_result(success=True, node_count=4)
 
         body = json.dumps({
-            "event_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
+            "job_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
             "routing_key": "verified.pci",
             "year": 2025,
             "semester": 2,
@@ -154,7 +154,7 @@ class TestU1ToU4ValidPayloads:
         runner.run.return_value = _make_result(success=True, node_count=1)
 
         body = json.dumps({
-            "event_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
+            "job_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
             "routing_key": "verified.rni",
             "year": 2025,
             "semester": 2,
@@ -188,7 +188,7 @@ class TestU5ToU9InvalidPayloads:
         cons, settings, runner = consumer
 
         body = json.dumps({
-            "event_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
+            "job_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
             "routing_key": "verified.rni",
             "year": 2025,
             "emitted_at": "2026-08-21T09:30:00Z",
@@ -205,7 +205,7 @@ class TestU5ToU9InvalidPayloads:
         cons, settings, runner = consumer
 
         body = json.dumps({
-            "event_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
+            "job_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
             "routing_key": "verified.rni",
             "year": 2025,
             "semester": 3,

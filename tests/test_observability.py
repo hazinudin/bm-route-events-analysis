@@ -23,13 +23,13 @@ def test_structured_formatter_includes_extra_fields():
         args=(),
         exc_info=None,
     )
-    record.event_id = "abc-123"
+    record.job_id = "abc-123"
     record.routing_key = "verified.rni"
     output = formatter.format(record)
     entry = json.loads(output)
     assert entry["msg"] == "event processed"
     assert entry["level"] == "INFO"
-    assert entry["event_id"] == "abc-123"
+    assert entry["job_id"] == "abc-123"
     assert entry["routing_key"] == "verified.rni"
     assert "ts" in entry
 
@@ -66,14 +66,14 @@ def test_setup_logging_creates_log_file(make_settings):
 def test_setup_logging_writes_structured_json(make_settings):
     settings = make_settings()
     logger = setup_logging(settings)
-    logger.info("msg processed", extra={"event_id": "e-1", "routing_key": "verified.iri"})
+    logger.info("msg processed", extra={"job_id": "e-1", "routing_key": "verified.iri"})
     for handler in logger.handlers:
         handler.flush()
 
     content = (settings.log_dir / "consumer.log").read_text()
     entry = json.loads(content.strip().split("\n")[-1])
     assert entry["msg"] == "msg processed"
-    assert entry["event_id"] == "e-1"
+    assert entry["job_id"] == "e-1"
     assert entry["routing_key"] == "verified.iri"
 
 
@@ -102,7 +102,7 @@ def test_get_tracer_creates_span(make_settings):
     setup_tracing(make_settings())
     tracer = get_tracer()
     with tracer.start_as_current_span("test_span") as span:
-        span.set_attribute("event_id", "test-123")
+        span.set_attribute("job_id", "test-123")
         span.set_attribute("routing_key", "verified.rni")
     assert span is not None
 

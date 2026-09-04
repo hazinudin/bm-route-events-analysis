@@ -185,7 +185,7 @@ def _make_result(success=True, node_count=1, exception=None):
 
 def _valid_body(routing_key="verified.rni", **overrides):
     body = {
-        "event_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
+        "job_id": "b7e6c1c4-7f5b-4c96-9b34-5d4f5f4b3d12",
         "routing_key": routing_key,
         "year": 2025,
         "semester": 2,
