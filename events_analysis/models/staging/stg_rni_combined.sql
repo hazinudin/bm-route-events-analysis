@@ -28,7 +28,7 @@ with source_data as (
 
             {%- set max_update_date = run_query(max_update_date_query).columns[0][0] -%}
 
-            SELECT 
+            SELECT
                 LINKID,
                 FROM_STA,
                 TO_STA,
@@ -42,8 +42,18 @@ with source_data as (
                 UPDATE_DATE,
                 {{ target_year }} as YEAR,
                 {{ target_semester }} as SEMESTER
-            FROM {{ source('binamarga', 'RNI_' ~ target_semester ~ '_' ~ target_year) }}
+            FROM {{ rni_source(target_semester, target_year) }}
             WHERE 1=1
+
+            {% if max_update_date %}
+                {%- if max_update_date.strftime is defined -%}
+                    {%- set max_update_date_str = max_update_date.strftime('%Y-%m-%d %H:%M:%S') -%}
+                {%- else -%}
+                    {%- set max_update_date_str = max_update_date -%}
+                {%- endif -%}
+                AND UPDATE_DATE > TO_DATE('{{ max_update_date_str }}', 'YYYY-MM-DD HH24:MI:SS')
+            {% endif %}
+
             {% if target_routes %}
                 AND LINKID IN (
                     {%- for route in target_routes -%}
@@ -70,7 +80,7 @@ with source_data as (
                 UPDATE_DATE,
                 2022 as YEAR,
                 1 as SEMESTER
-            FROM {{ source('binamarga', 'RNI_1_2022') }} 
+            FROM {{ rni_source(1, 2022) }} 
             WHERE 1=0
 
         {%- endif -%}
@@ -93,7 +103,7 @@ with source_data as (
                 UPDATE_DATE,
                 {{ t.year }} as YEAR,
                 {{ t.semester }} as SEMESTER
-            FROM {{ source('binamarga', 'RNI_' ~ t.semester ~ '_' ~ t.year) }}
+            FROM {{ rni_source(t.semester, t.year) }}
             {% if not loop.last %} UNION ALL {% endif %}
         {%- endfor -%}
 
