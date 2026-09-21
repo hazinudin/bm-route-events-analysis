@@ -4,13 +4,6 @@
     incremental_strategy='delete+insert'
 ) }}
 
-{%- set tables = [] -%}
-{%- for year in [2022, 2023, 2024, 2025] -%}
-    {%- for semester in [2] -%}
-        {%- do tables.append({'year': year, 'semester': semester}) -%}
-    {%- endfor -%}
-{%- endfor -%}
-
 with source_data as (
 
     {% if is_incremental() %}
@@ -87,8 +80,8 @@ with source_data as (
 
     {% else %}
 
-        -- Full Refresh: Union all defined tables
-        {% for t in tables %}
+        -- Full Refresh: Union all RNI tables discovered in the SMD schema
+        {% for t in rni_sources() %}
             SELECT 
                 LINKID,
                 FROM_STA,
@@ -103,7 +96,7 @@ with source_data as (
                 UPDATE_DATE,
                 {{ t.year }} as YEAR,
                 {{ t.semester }} as SEMESTER
-            FROM {{ rni_source(t.semester, t.year) }}
+            FROM {{ t.relation }}
             {% if not loop.last %} UNION ALL {% endif %}
         {%- endfor -%}
 

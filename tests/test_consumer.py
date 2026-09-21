@@ -120,7 +120,7 @@ class TestU1ToU4ValidPayloads:
 
         mock_channel.basic_ack.assert_called_once()
         args = runner.run.call_args.args[0]
-        assert "tag:iri" in args
+        assert "stg_rni_combined tag:iri" in args
         vars_json = args[args.index("--vars") + 1]
         assert "routes" not in json.loads(vars_json)
 
@@ -144,7 +144,7 @@ class TestU1ToU4ValidPayloads:
 
         mock_channel.basic_ack.assert_called_once()
         args = runner.run.call_args.args[0]
-        assert "tag:pci" in args
+        assert "stg_rni_combined tag:pci" in args
         vars_json = args[args.index("--vars") + 1]
         vars_dict = json.loads(vars_json)
         assert vars_dict["routes"] == ["01001"]
@@ -325,8 +325,8 @@ class TestU14EmptySelection:
 class TestRoutingToSelectMap:
     def test_map_contains_all_three_keys(self):
         assert ROUTING_TO_SELECT["verified.rni"] == "stg_rni_combined+"
-        assert ROUTING_TO_SELECT["verified.iri"] == "tag:iri"
-        assert ROUTING_TO_SELECT["verified.pci"] == "tag:pci"
+        assert ROUTING_TO_SELECT["verified.iri"] == "stg_rni_combined tag:iri"
+        assert ROUTING_TO_SELECT["verified.pci"] == "stg_rni_combined tag:pci"
 
 
 class TestRunnerInvokeException:

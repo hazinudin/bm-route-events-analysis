@@ -16,8 +16,8 @@ from dbt_events_consumer.schema import TriggerMessage
 
 ROUTING_TO_SELECT: dict[str, str] = {
     "verified.rni": "stg_rni_combined+",
-    "verified.iri": "tag:iri",
-    "verified.pci": "tag:pci",
+    "verified.iri": "stg_rni_combined tag:iri",
+    "verified.pci": "stg_rni_combined tag:pci",
 }
 
 RETRY_HEADER = "x-retry-count"
