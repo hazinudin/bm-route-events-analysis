@@ -56,88 +56,22 @@ def test_check_dirs_fails_on_missing_profiles_dir(make_settings, tmp_path):
     assert exc_info.value.code == 1
 
 
-@patch("dbt_events_consumer.__main__.pika")
-@patch("dbt_events_consumer.__main__.declare_topology")
-@patch("dbt_events_consumer.__main__.DbtRunnerWrapper")
-@patch("dbt_events_consumer.__main__.setup_observability")
+@patch("dbt_events_consumer.__main__.run_worker")
 @patch("dbt_events_consumer.__main__.load_settings")
-def test_main_exits_on_topology_error(
-    mock_load, mock_setup_obs, mock_runner_cls, mock_declare, mock_pika,
-    make_settings, tmp_path,
-):
-    from dbt_events_consumer.topology import TopologyError
-
-    settings = make_settings(
-        dbt_project_dir=tmp_path,
-        dbt_profiles_dir=tmp_path,
-    )
-    mock_load.return_value = settings
-    mock_setup_obs.return_value = MagicMock()
-
-    mock_connection = MagicMock()
-    mock_pika.BlockingConnection.return_value = mock_connection
-    mock_pika.URLParameters.return_value = MagicMock()
-    mock_declare.side_effect = TopologyError("arg mismatch")
-
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-    assert exc_info.value.code == 1
-    mock_connection.close.assert_called_once()
-
-
-@patch("dbt_events_consumer.__main__.pika")
-@patch("dbt_events_consumer.__main__.declare_topology")
-@patch("dbt_events_consumer.__main__.DbtRunnerWrapper")
-@patch("dbt_events_consumer.__main__.setup_observability")
-@patch("dbt_events_consumer.__main__.load_settings")
-def test_main_exits_on_connection_failure(
-    mock_load, mock_setup_obs, mock_runner_cls, mock_declare, mock_pika,
-    make_settings, tmp_path,
+def test_main_delegates_to_run_worker(
+    mock_load, mock_run_worker, make_settings, tmp_path,
 ):
     settings = make_settings(
         dbt_project_dir=tmp_path,
         dbt_profiles_dir=tmp_path,
     )
     mock_load.return_value = settings
-    mock_setup_obs.return_value = MagicMock()
-
-    mock_pika.URLParameters.return_value = MagicMock()
-    mock_pika.BlockingConnection.side_effect = ConnectionError("broker down")
-
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-    assert exc_info.value.code == 1
-
-
-@patch("dbt_events_consumer.__main__.pika")
-@patch("dbt_events_consumer.__main__.declare_topology")
-@patch("dbt_events_consumer.__main__.DbtRunnerWrapper")
-@patch("dbt_events_consumer.__main__.setup_observability")
-@patch("dbt_events_consumer.__main__.load_settings")
-def test_main_starts_and_stops_consuming(
-    mock_load, mock_setup_obs, mock_runner_cls, mock_declare, mock_pika,
-    make_settings, tmp_path,
-):
-    settings = make_settings(
-        dbt_project_dir=tmp_path,
-        dbt_profiles_dir=tmp_path,
-    )
-    mock_load.return_value = settings
-    mock_logger = MagicMock()
-    mock_setup_obs.return_value = mock_logger
-
-    mock_channel = MagicMock()
-    mock_connection = MagicMock()
-    mock_connection.channel.return_value = mock_channel
-    mock_pika.BlockingConnection.return_value = mock_connection
-    mock_pika.URLParameters.return_value = MagicMock()
 
     main()
 
-    mock_channel.basic_qos.assert_called_once_with(prefetch_count=1)
-    mock_channel.basic_consume.assert_called_once()
-    assert mock_channel.basic_consume.call_args.kwargs["queue"] == "dbt.events.worker"
-    assert mock_channel.basic_consume.call_args.kwargs["auto_ack"] is False
-    mock_channel.start_consuming.assert_called_once()
-    mock_channel.close.assert_called_once()
-    mock_connection.close.assert_called_once()
+    mock_run_worker.assert_called_once()
+    args, kwargs = mock_run_worker.call_args
+    assert args[0] is settings
+    assert callable(args[1])
+    assert kwargs["logger_name"] == "dbt_events_consumer"
+    assert kwargs["startup_checks"] is not None
