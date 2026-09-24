@@ -1,0 +1,26 @@
+{
+  "table_fields": {
+    "rni": {
+      "route_id": "LINKID",
+      "lane_code": "LANE_CODE",
+      "from_measure": "FROM_STA",
+      "to_measure": "TO_STA",
+      "surface_type": "SURF_TYPE",
+      "ver_align": "VER_ALIGNMENT",
+      "hor_align": "HOR_ALIGNMENT",
+      "lane_width": "LANE_WIDTH",
+      "surface_width": "SURF_WIDTH",
+      "longitude": "TO_STA_LONG",
+      "latitude": "TO_STA_LAT",
+      "median": "MED_WIDTH",
+      "road_type": "ROAD_TYPE",
+      "length_col": "SEGMENT_LENGTH",
+      "left_terrain_col": "L_TERRAIN_TYPE",
+      "right_terrain_col": "R_TERRAIN_TYPE",
+      "left_inner_sh_w": "L_INN_SHWIDTH",
+      "left_outer_sh_w": "L_OUT_SHWIDTH",
+      "right_inner_sh_w": "R_INN_SHWIDTH",
+      "right_outer_sh_w": "R_OUT_SHWIDTH"
+    }
+  }
+}
