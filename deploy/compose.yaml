@@ -24,6 +24,27 @@ services:
     tmpfs:
       - /tmp
 
+  traffic-events-consumer:
+    image: hazinuddin/traffic-route-events-worker:${IMAGE_TAG}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30m
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_QUEUE: traffic.events.worker
+      RABBITMQ_DLQ: traffic.events.worker.dlq
+      RABBITMQ_ROUTING_KEYS: verified.rtc
+      LOG_DIR: /var/log/traffic-events
+      TRAFFIC_TARGET_TABLE: SMD.AADT
+    networks:
+      - backend
+    volumes:
+      - traffic-logs:/var/log/traffic-events
+    read_only: true
+    tmpfs:
+      - /tmp
+
 networks:
   backend:
     external: true
@@ -33,3 +54,4 @@ volumes:
   dbt-logs:
   dbt-target:
   consumer-logs:
+  traffic-logs:

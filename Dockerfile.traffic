@@ -4,16 +4,13 @@ WORKDIR /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src" \
-    PYTHONUNBUFFERED="1" \
-    DBT_PROJECT_DIR="/app/events_analysis" \
-    DBT_PROFILES_DIR="/run/secrets/dbt"
+    PYTHONUNBUFFERED="1"
 
 COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir uv \
     && uv sync --frozen --no-dev --no-install-project
 
 COPY src/worker ./src/worker
-COPY src/dbt_events_consumer ./src/dbt_events_consumer
-COPY events_analysis ./events_analysis
+COPY src/traffic ./src/traffic
 
-ENTRYPOINT ["python", "-m", "dbt_events_consumer"]
+ENTRYPOINT ["python", "-m", "traffic.consumer"]
