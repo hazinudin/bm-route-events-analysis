@@ -2,11 +2,14 @@
 Standalone database connection module (replaces SMD_Package.db_conn).
 
 Keeps the same global-connection pattern so that ``AADTPipeline`` can be
-dropped in as a replacement without changing caller code.
+dropped in as a replacement without changing caller code, but delays the
+actual Oracle connection until first use.
 """
 
 import os
 from dotenv import load_dotenv
+
+from worker.db import create_oracle_engine
 from .smd_config import SMDConfigs
 
 # ---------------------------------------------------------------------------
@@ -27,48 +30,60 @@ SMD_PASS = os.getenv('SMD_ORA_KEY')
 
 
 # ---------------------------------------------------------------------------
+# Lazy connection proxy
+# ---------------------------------------------------------------------------
+class _LazyConnection:
+    """
+    Proxy that creates the real Oracle connection on first attribute access.
+
+    This preserves the module-level ``smd_connection`` symbol used by the
+    rest of the package while avoiding import-time side effects.
+    """
+
+    def __init__(self, factory):
+        self._factory = factory
+        self._connection = None
+
+    def _connect(self):
+        if self._connection is None:
+            self._connection = self._factory()
+        return self._connection
+
+    def __getattr__(self, name):
+        return getattr(self._connect(), name)
+
+
+# ---------------------------------------------------------------------------
 # Connection helper
 # ---------------------------------------------------------------------------
-def connect_to_ora(host, port, service, user, password):
-    """
-    Create a connection to Oracle Database using ``oracledb`` (cx_Oracle).
-
-    Parameters
-    ----------
-    host, port, service, user, password : str
-    """
-    import oracledb as cx_Oracle
-
-    dsn_tns = cx_Oracle.makedsn(host, port, service_name=service)
-    try:
-        connection = cx_Oracle.connect(user=user, password=password, dsn=dsn_tns)
-    except cx_Oracle.DatabaseError:
-        cx_Oracle.init_oracle_client(ORA_CLIENT_DIR)
-        connection = cx_Oracle.connect(user, password, dsn_tns)
-    return connection
+_engine = None
 
 
-# ---------------------------------------------------------------------------
-# Global connections (lazy initialisation so imports never fail)
-# ---------------------------------------------------------------------------
-_smd_connection = None
-
-
-def get_smd_connection():
-    """Return the shared SMD Oracle connection, creating it on first call."""
-    global _smd_connection
-    if _smd_connection is None:
+def get_smd_engine():
+    """Return the shared SQLAlchemy engine, creating it on first call."""
+    global _engine
+    if _engine is None:
         if None in (ORA_HOST, ORA_PORT, ORA_SERVICE, SMD_USER, SMD_PASS):
             raise RuntimeError(
                 "Oracle credentials are not configured.  "
                 "Ensure SMD_Package/.env exists or set ORA_HOST, ORA_PORT, "
                 "ORA_SERVICE, SMD_ORA_USER and SMD_ORA_KEY environment variables."
             )
-        _smd_connection = connect_to_ora(
-            ORA_HOST, ORA_PORT, ORA_SERVICE, SMD_USER, SMD_PASS
+        _engine = create_oracle_engine(
+            host=ORA_HOST,
+            port=ORA_PORT,
+            service=ORA_SERVICE,
+            user=SMD_USER,
+            password=SMD_PASS,
+            client_dir=ORA_CLIENT_DIR or None,
         )
-    return _smd_connection
+    return _engine
 
 
-# Mirror the original module-level name.
-smd_connection = get_smd_connection()
+def get_smd_connection():
+    """Return a DB-API connection from the shared engine."""
+    return get_smd_engine().raw_connection()
+
+
+# Mirror the original module-level name, but lazily.
+smd_connection = _LazyConnection(get_smd_connection)
