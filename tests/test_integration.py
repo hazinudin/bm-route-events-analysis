@@ -5,6 +5,7 @@ import time
 from typing import Any
 from unittest.mock import MagicMock
 
+import docker
 import pika
 import pytest
 from testcontainers.community.rabbitmq import RabbitMqContainer
@@ -16,8 +17,17 @@ from dbt_events_consumer.topology import declare_topology
 RABBIT_IMAGE = "rabbitmq:3.13-management"
 
 
+def _docker_available() -> bool:
+    try:
+        return docker.from_env().ping()
+    except Exception:
+        return False
+
+
 @pytest.fixture(scope="module")
 def rabbitmq():
+    if not _docker_available():
+        pytest.skip("Docker daemon is not available")
     container = RabbitMqContainer(RABBIT_IMAGE)
     container.start()
     yield container

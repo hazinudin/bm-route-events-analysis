@@ -110,7 +110,104 @@ dbt run --select kemantapan_lkm_iri --vars '{"year": 2025, "semester": 2}'
 - Province mapping via `PROVINCE_MAP` source table
 - Satker/Balai mapping via `SATKER_BALAI_MAP` source table
 
-### Key Concepts
+## Event Consumers
+
+The repository includes two RabbitMQ-backed event consumers that react to
+validated road-condition events on the `validation.events` topic exchange.
+
+### Shared worker framework (`src/worker/`)
+
+Generic RabbitMQ consumer machinery shared by both workers:
+
+| Module | Responsibility |
+|--------|----------------|
+| `settings.py` | `WorkerSettings` + `load_worker_settings()` |
+| `schema.py` | `TriggerMessage` pydantic model |
+| `topology.py` | Exchange/queue/DLX/retry declaration |
+| `observability.py` | Structured JSON logging + OpenTelemetry tracing |
+| `db.py` | `create_oracle_engine()` factory |
+| `outcomes.py` | `Success` / `PermanentFailure` / `TransientFailure` |
+| `handler.py` | `MessageHandler` protocol |
+| `consumer.py` | `EventConsumer`: parse → validate → handler → ack/nack/retry |
+| `heartbeat.py` | Heartbeat pump for long-running work |
+| `app.py` | `run_worker()` bootstrap + graceful shutdown |
+
+### dbt events consumer (`src/dbt_events_consumer/`)
+
+Runs dbt models for `verified.rni`, `verified.iri`, and `verified.pci` routing
+keys.
+
+```bash
+python -m dbt_events_consumer
+```
+
+Key environment variables (shared names from `src/worker/settings.py`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RABBITMQ_URL` | — | RabbitMQ AMQP URL |
+| `RABBITMQ_QUEUE` | `dbt.events.worker` | Work queue |
+| `RABBITMQ_DLQ` | `dbt.events.worker.dlq` | Dead-letter queue |
+| `RABBITMQ_ROUTING_KEYS` | `verified.rni,verified.iri,verified.pci` | Bound routing keys |
+| `DBT_PROJECT_DIR` | `./events_analysis` | dbt project directory |
+| `DBT_PROFILES_DIR` | `~/.dbt` | dbt profiles directory |
+| `LOG_DIR` | `./logs` | Log output directory |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | OpenTelemetry collector endpoint |
+
+### Traffic events consumer (`src/traffic/consumer/`)
+
+Runs the `AADTPipeline` for `verified.rtc` events and persists the result
+DataFrame to an Oracle target table (default `SMD.AADT`).
+
+```bash
+python -m traffic.consumer
+```
+
+Worker-specific environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RABBITMQ_QUEUE` | `traffic.events.worker` | Work queue |
+| `RABBITMQ_DLQ` | `traffic.events.worker.dlq` | Dead-letter queue |
+| `RABBITMQ_ROUTING_KEYS` | `verified.rtc` | Bound routing keys |
+| `TRAFFIC_TARGET_TABLE` | `SMD.AADT` | Oracle target table |
+| `ORACLE_HOST` | — | Oracle host |
+| `ORACLE_PORT` | — | Oracle port |
+| `ORACLE_SERVICE` | — | Oracle service name |
+| `ORACLE_USER` | — | Oracle user |
+| `ORACLE_PASSWORD` | — | Oracle password |
+| `ORACLE_CLIENT_DIR` | — | Instant Client dir (thick mode fallback) |
+
+Oracle credentials may also be read from `~/.dbt/profiles.yml` if the direct
+environment variables are not set.
+
+## Docker Deployment
+
+Build the images:
+
+```bash
+export IMAGE_TAG=$(git describe --tags --always)
+docker build -t hazinuddin/dbt-route-events-worker:${IMAGE_TAG} .
+docker build -f Dockerfile.traffic -t hazinuddin/traffic-route-events-worker:${IMAGE_TAG} .
+```
+
+Deploy with Compose (`deploy/compose.yaml`):
+
+```bash
+cd deploy
+export IMAGE_TAG=$(git describe --tags --always)
+docker compose up -d
+```
+
+The Compose file defines two services:
+
+- `dbt-events-consumer` — runs dbt models.
+- `traffic-events-consumer` — runs AADT/VCR calculation and writes results.
+
+Both share the same RabbitMQ topology, retry semantics, observability, and
+graceful-shutdown behaviour.
+
+## Key Concepts
 
 - **Kemantapan**: Road condition index classifying road segments into Good, Fair, Poor, and Bad categories based on IRI or PCI thresholds.
 - **IRI** (*International Roughness Index*): A measure of road surface roughness.
