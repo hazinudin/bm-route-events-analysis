@@ -3,8 +3,18 @@ from __future__ import annotations
 from typing import Any
 
 import oracledb
+import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
+
+
+def to_python(value: Any) -> Any:
+    """Convert numpy/pandas scalars to plain Python objects for Oracle."""
+    if pd.isna(value):
+        return None
+    if hasattr(value, "item"):
+        return value.item()
+    return value
 
 
 def create_oracle_engine(

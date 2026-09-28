@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from worker.db import to_python
+
 
 def write_aadt_results(
     connection: Any,
@@ -98,18 +100,9 @@ def _insert_results(
     insert_sql = f"INSERT INTO {target_table} ({col_str}) VALUES ({placeholders})"
 
     values = [
-        tuple(_to_python(v) for v in row)
+        tuple(to_python(v) for v in row)
         for row in write_df[columns].to_numpy()
     ]
 
     cursor.executemany(insert_sql, values)
     return len(write_df)
-
-
-def _to_python(value: Any) -> Any:
-    """Convert numpy/pandas scalars to plain Python objects for Oracle."""
-    if pd.isna(value):
-        return None
-    if hasattr(value, "item"):
-        return value.item()
-    return value
