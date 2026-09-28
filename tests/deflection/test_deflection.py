@@ -25,8 +25,17 @@ def engine():
 
 
 def test_fwd(engine):
+    # Use linkids already present in SMD.FWD 2025 so the test stays valid after
+    # the staging rows are processed (the previous "not in FWD" query now
+    # returns zero rows).  The row cap keeps the calculation fast.
     df = pd.read_sql(
-        "select * from fwd_2_2025 where linkid not in (select linkid from fwd where year = 2025)",
+        """
+        SELECT * FROM (
+            SELECT s.*
+            FROM FWD_2_2025 s
+            WHERE s.LINKID IN (SELECT f.LINKID FROM FWD f WHERE f.YEAR = 2025)
+        ) WHERE ROWNUM <= 500
+        """,
         con=engine,
     ).rename(columns=str.upper)
 
