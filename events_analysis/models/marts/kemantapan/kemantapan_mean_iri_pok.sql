@@ -54,7 +54,7 @@ FROM
             max(e.SURF_TYPE) as SURF_TYPE, 
             max(e.SEGMENT_LENGTH) as SEGMENT_LENGTH 
         
-        from ({{ rni_iri_join(var('semester'), var('year'), var('routes', none)) }}) e
+        from ({{ rni_iri_join(var('semester'), var('year'), var('routes', none), true) }}) e
         GROUP BY e.LINKID, e.FROM_STA, e.TO_STA
     ) merged
 

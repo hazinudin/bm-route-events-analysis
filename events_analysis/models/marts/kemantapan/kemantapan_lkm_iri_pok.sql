@@ -48,7 +48,7 @@ FROM
             e.SURF_TYPE, 
             e.SEGMENT_LENGTH 
         
-        from ({{ rni_iri_join(var('semester'), var('year'), var('routes', none)) }}) e
+        from ({{ rni_iri_join(var('semester'), var('year'), var('routes', none), true) }}) e
     ) merged
 
     GROUP BY merged.LINKID

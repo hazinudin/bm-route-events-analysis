@@ -1,4 +1,4 @@
-{% macro rni_iri_join(semester, year, route_selection, include_pok=true)%}
+{% macro rni_iri_join(semester, year, route_selection, include_pok=false)%}
 {% set sta_scale = rni_sta_scale(semester, year) %}
 SELECT
     b.LINKID,
