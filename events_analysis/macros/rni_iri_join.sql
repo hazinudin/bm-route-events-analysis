@@ -1,4 +1,4 @@
-{% macro rni_iri_join(semester, year, route_selection)%}
+{% macro rni_iri_join(semester, year, route_selection, include_pok=true)%}
 {% set sta_scale = rni_sta_scale(semester, year) %}
 SELECT
     b.LINKID,
@@ -6,7 +6,7 @@ SELECT
     b.TO_STA,
     b.SEGMENT_LENGTH,
     a.IRI,
-    a.IRI_POK,
+    {% if include_pok %}a.IRI_POK,{% endif %}
     b.SURF_TYPE
 FROM (select * from {{ref("stg_rni_combined")}} where year = {{year}} and semester = {{semester}}) b
 LEFT JOIN  smd.roughness_{{semester}}_{{year}} a
