@@ -27,8 +27,8 @@ def test_declares_three_topic_exchanges(mock_channel, make_worker_settings):
 
     names = [c.kwargs["exchange"] for c in ch.exchange_declare.call_args_list]
     assert "validation.events" in names
-    assert "validation.events.dlx" in names
-    assert "validation.events.retry" in names
+    assert "events.worker.dlx" in names
+    assert "events.worker.retry.exchange" in names
     for c in ch.exchange_declare.call_args_list:
         assert c.kwargs["exchange_type"] == "topic"
         assert c.kwargs["durable"] is True
@@ -40,7 +40,7 @@ def test_work_queue_has_dlx_and_dead_routing_key(mock_channel, make_worker_setti
 
     q = _extract_queue_args(ch)["events.worker"]
     assert q["durable"] is True
-    assert q["arguments"]["x-dead-letter-exchange"] == "validation.events.dlx"
+    assert q["arguments"]["x-dead-letter-exchange"] == "events.worker.dlx"
     assert q["arguments"]["x-dead-letter-routing-key"] == "dead"
 
 
@@ -94,7 +94,7 @@ def test_retry_queue_bound_with_wildcard(mock_channel, make_worker_settings):
         if c.kwargs["queue"] == "events.worker.retry"
     ]
     assert len(retry_binds) == 1
-    assert retry_binds[0].kwargs["exchange"] == "validation.events.retry"
+    assert retry_binds[0].kwargs["exchange"] == "events.worker.retry.exchange"
     assert retry_binds[0].kwargs["routing_key"] == "#"
 
 
@@ -108,7 +108,7 @@ def test_dlq_bound_to_dlx_with_dead_key(mock_channel, make_worker_settings):
         if c.kwargs["queue"] == "events.worker.dlq"
     ]
     assert len(dlq_binds) == 1
-    assert dlq_binds[0].kwargs["exchange"] == "validation.events.dlx"
+    assert dlq_binds[0].kwargs["exchange"] == "events.worker.dlx"
     assert dlq_binds[0].kwargs["routing_key"] == "dead"
 
 
@@ -141,4 +141,4 @@ def test_custom_names_propagate_to_topology(mock_channel, make_worker_settings):
     assert queue_names == {"custom.worker", "custom.worker.retry", "custom.dlq"}
 
     q = _extract_queue_args(ch)["custom.worker"]
-    assert q["arguments"]["x-dead-letter-exchange"] == "custom.events.dlx"
+    assert q["arguments"]["x-dead-letter-exchange"] == "custom.worker.dlx"

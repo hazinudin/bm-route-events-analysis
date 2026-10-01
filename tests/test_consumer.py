@@ -268,7 +268,7 @@ class TestU11ToU13TransientRetry:
 
         mock_channel.basic_publish.assert_called_once()
         pub_call = mock_channel.basic_publish.call_args
-        assert pub_call.kwargs["exchange"] == "validation.events.retry"
+        assert pub_call.kwargs["exchange"] == "dbt.events.worker.retry.exchange"
         assert pub_call.kwargs["routing_key"] == "verified.rni"
 
         pub_props = pub_call.kwargs["properties"]

@@ -34,8 +34,8 @@ def test_defaults(clean_env):
 def test_derived_topology_names(clean_env):
     clean_env.setenv("RABBITMQ_URL", "amqp://x")
     settings = load_settings()
-    assert settings.dlx_exchange == "validation.events.dlx"
-    assert settings.retry_exchange == "validation.events.retry"
+    assert settings.dlx_exchange == "dbt.events.worker.dlx"
+    assert settings.retry_exchange == "dbt.events.worker.retry.exchange"
     assert settings.retry_queue == "dbt.events.worker.retry"
 
 

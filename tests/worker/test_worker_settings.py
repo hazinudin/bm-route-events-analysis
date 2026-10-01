@@ -43,8 +43,8 @@ def test_routing_keys_override_defaults(clean_env):
 def test_derived_topology_names(clean_env):
     clean_env.setenv("RABBITMQ_URL", "amqp://x")
     settings = load_worker_settings()
-    assert settings.dlx_exchange == "validation.events.dlx"
-    assert settings.retry_exchange == "validation.events.retry"
+    assert settings.dlx_exchange == "events.worker.dlx"
+    assert settings.retry_exchange == "events.worker.retry.exchange"
     assert settings.retry_queue == "events.worker.retry"
 
 

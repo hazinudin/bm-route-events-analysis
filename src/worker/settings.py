@@ -22,11 +22,15 @@ class WorkerSettings:
 
     @property
     def dlx_exchange(self) -> str:
-        return f"{self.rabbitmq_exchange}.dlx"
+        # Per-worker DLX. The main exchange is shared with the publisher, but
+        # the dead-letter/retry exchanges must be scoped to this worker's queue
+        # so two workers on the same broker don't cross-route each other's
+        # dead-letters and retries.
+        return f"{self.rabbitmq_queue}.dlx"
 
     @property
     def retry_exchange(self) -> str:
-        return f"{self.rabbitmq_exchange}.retry"
+        return f"{self.rabbitmq_queue}.retry.exchange"
 
     @property
     def retry_queue(self) -> str:
